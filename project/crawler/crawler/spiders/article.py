@@ -97,7 +97,7 @@ class ArticleReadDataSpider(scrapy.Spider):
     wx_num,_,_ = TidyReqData.get_gzh_req_data()
     if wx_num == 0:
         wx_num = 1
-    custom_settings['DOWNLOAD_DELAY'] = round(2.5/wx_num,2)
+    custom_settings['DOWNLOAD_DELAY'] = round(3.0/wx_num,2)
     custom_settings['DOWNLOADER_MIDDLEWARES'] = {
         'crawler.crawler.middlewares.crawl_article.ArticleReadDataMiddleware': 543,
     }
@@ -105,6 +105,7 @@ class ArticleReadDataSpider(scrapy.Spider):
         'crawler.crawler.pipelines.crawl_article.ResponseArticleReadDataPipeline': 300,
     }
     custom_settings['CONCURRENT_REQUESTS'] = 1
+    custom_settings['DOWNLOAD_TIMEOUT'] = 10
 
     def __init__(self, *args, **kwargs):
         """
@@ -115,7 +116,9 @@ class ArticleReadDataSpider(scrapy.Spider):
         # 包含当前公众号所有不存在文本内容数据的生成器
         self.current_nickname = TidyReqData.get_nickname()
         print(self.current_nickname)
-        articles_list = get_collection_article(self.current_nickname,read_num={"$exists": False},comment_id={"$exists": True})
+        articles_list = get_collection_article(self.current_nickname,
+                                               read_num={"$exists": False},
+                                               comment_id={"$exists": True})
         self.articles_list = []
         for article in articles_list:
             self.articles_list.append(article)
@@ -131,9 +134,11 @@ class ArticleReadDataSpider(scrapy.Spider):
         """
         for article in self.articles_list:
             if ':' in article['content_url']:
-                request = Request(url=article['content_url'],callback=self.parse, dont_filter=False)
-                request.set_ext_data({'content_url':article['content_url'],
-                                      'comment_id':article['comment_id']})
+                request = Request(url=article['content_url'],
+                                  callback=self.parse,
+                                  meta={'content_url':article['content_url'],
+                                        'comment_id':article['comment_id']},
+                                  dont_filter=False)
                 yield request
 
     def parse(self, response):
